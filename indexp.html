@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4 Friends No-Login Chat</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #121212; color: white; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        
+        #login-screen { background: #1e1e1e; padding: 30px; border-radius: 12px; text-align: center; width: 90%; max-width: 400px; display: flex; flex-direction: column; gap: 15px; }
+        #username-input { padding: 12px; border: 2px solid #333; border-radius: 8px; background: #2a2a2a; color: white; font-size: 16px; outline: none; text-align: center; }
+        #enter-btn { padding: 12px; border: none; background: #007bff; color: white; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+
+        #chat-screen { width: 100%; height: 100vh; display: none; flex-direction: column; background: #121212; }
+        #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        
+        .msg-wrapper { display: flex; flex-direction: column; max-width: 70%; }
+        .msg { padding: 10px 14px; border-radius: 12px; word-wrap: break-word; font-size: 15px; }
+        .incoming { align-self: flex-start; align-items: flex-start; }
+        .incoming .msg { background: #26262b; border-top-left-radius: 2px; }
+        .outgoing { align-self: flex-end; align-items: flex-end; }
+        .outgoing .msg { background: #007bff; border-top-right-radius: 2px; }
+        .sender-name { font-size: 11px; color: #aaa; margin-bottom: 4px; font-weight: bold; }
+        
+        #input-area { display: flex; padding: 15px; background: #1e1e1e; border-top: 1px solid #2d2d2d; }
+        #msg-input { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #2a2a2a; color: white; outline: none; }
+        #send-btn { padding: 12px 24px; border: none; background: #007bff; color: white; font-weight: bold; margin-left: 10px; border-radius: 8px; cursor: pointer; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+</head>
+<body>
+
+    <div id="login-screen">
+        <h2>No-Login Secure Chat 🚀</h2>
+        <p style="color: #888; margin: 0;">Apna naam likhein aur chat me enter karein:</p>
+        <input type="text" id="username-input" placeholder="Type your name..." maxlength="15">
+        <button id="enter-btn">Join Chat</button>
+    </div>
+
+    <div id="chat-screen">
+        <div id="chat-box"></div>
+        <div id="input-area">
+            <input type="text" id="msg-input" placeholder="Type a message...">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Gun.js ka free public network use kar rahe hain hum
+        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+        // 'secret_4_friends_room' ki jagah kuch bhi unique naam rakh sakte ho jo sirf tumhare dosto ko pata ho
+        const chatRoom = gun.get('secret_4_friends_room');
+
+        const loginScreen = document.getElementById("login-screen");
+        const chatScreen = document.getElementById("chat-screen");
+        const usernameInput = document.getElementById("username-input");
+        const enterBtn = document.getElementById("enter-btn");
+        const chatBox = document.getElementById("chat-box");
+        const msgInput = document.getElementById("msg-input");
+        const sendBtn = document.getElementById("send-btn");
+
+        let myName = localStorage.getItem("chat_username");
+
+        if (myName) { startChat(); }
+
+        enterBtn.addEventListener("click", () => {
+            const enteredName = usernameInput.value.trim();
+            if (enteredName === "") return alert("Please enter a name!");
+            myName = enteredName;
+            localStorage.setItem("chat_username", myName);
+            startChat();
+        });
+
+        function startChat() {
+            loginScreen.style.display = "none";
+            chatScreen.style.display = "flex";
+
+            // Realtime data listen karna bina kisi server ya login ke
+            chatRoom.map().on((data, id) => {
+                if (!data || !data.text || !data.sender) return;
+                
+                // Duplicate check karne ke liye taaki ek hi msg baar baar na aaye
+                if (document.getElementById(id)) return;
+
+                const msgWrapper = document.createElement("div");
+                msgWrapper.id = id;
+                msgWrapper.classList.add("msg-wrapper");
+                
+                const msgDiv = document.createElement("div");
+                msgDiv.classList.add("msg");
+                
+                if (data.sender === myName) {
+                    msgWrapper.classList.add("outgoing");
+                } else {
+                    msgWrapper.classList.add("incoming");
+                }
+                
+                const nameDiv = document.createElement("div");
+                nameDiv.classList.add("sender-name");
+                nameDiv.textContent = data.sender;
+                
+                msgDiv.textContent = data.text;
+                
+                msgWrapper.appendChild(nameDiv);
+                msgWrapper.appendChild(msgDiv);
+                chatBox.appendChild(msgWrapper);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            });
+        }
+
+        function sendMessage() {
+            if (msgInput.value.trim() === "") return;
+            
+            // Data network par set karna
+            chatRoom.set({
+                text: msgInput.value,
+                sender: myName,
+                time: Date.now()
+            });
+            
+            msgInput.value = "";
+        }
+
+        sendBtn.addEventListener("click", sendMessage);
+        msgInput.addEventListener("keypress", (e) => { if (e.key === "Enter") sendMessage(); });
+    </script>
+</body>
+</html>
